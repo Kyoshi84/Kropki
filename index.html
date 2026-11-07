@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Kropki — gra z zeszytu</title>
+  <meta name="description" content="Klasyczna gra w kropki z kratkowanego zeszytu. Otocz kropki przeciwnika!">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Caveat:wght@500;700&family=Patrick+Hand&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/style.css">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='6' fill='%23fdfbf3'/><circle cx='10' cy='16' r='5' fill='%231e4fd6'/><circle cx='22' cy='16' r='5' fill='%23d8342c'/></svg>">
+</head>
+<body>
+  <div class="desk">
+    <header class="top">
+      <h1 class="logo">
+        <span class="logo-dot blue"></span>Kropki<span class="logo-dot red"></span>
+      </h1>
+      <p class="tagline">gra z ostatniej ławki — otocz kropki przeciwnika</p>
+    </header>
+
+    <main class="layout">
+      <aside class="panel">
+        <div class="players">
+          <div class="player p1" id="card1">
+            <div class="player-head">
+              <span class="ink blue"></span>
+              <input class="name" id="name1" value="Niebieski" maxlength="14" aria-label="Imię gracza 1">
+            </div>
+            <div class="score" id="score1">0</div>
+            <div class="turn-flag">Twój ruch ✎</div>
+          </div>
+          <div class="vs">vs</div>
+          <div class="player p2" id="card2">
+            <div class="player-head">
+              <span class="ink red"></span>
+              <input class="name" id="name2" value="Czerwony" maxlength="14" aria-label="Imię gracza 2">
+            </div>
+            <div class="score" id="score2">0</div>
+            <div class="turn-flag">Twój ruch ✎</div>
+          </div>
+        </div>
+
+        <div class="controls">
+          <label>Tryb
+            <select id="mode">
+              <option value="pvp">2 graczy (jeden ekran)</option>
+              <option value="ai1">Z komputerem — łatwy</option>
+              <option value="ai2" selected>Z komputerem — trudny</option>
+            </select>
+          </label>
+          <label>Kartka
+            <select id="size">
+              <option value="16x12">Mała (16 × 12)</option>
+              <option value="24x18" selected>Średnia (24 × 18)</option>
+              <option value="32x24">Duża (32 × 24)</option>
+            </select>
+          </label>
+          <div class="buttons">
+            <button id="newGame" class="btn primary">Nowa gra</button>
+            <button id="undo" class="btn">↶ Cofnij</button>
+            <button id="endGame" class="btn">Koniec gry</button>
+            <button id="rulesBtn" class="btn ghost">Zasady</button>
+            <button id="soundBtn" class="btn ghost" aria-pressed="true">🔊</button>
+          </div>
+        </div>
+        <p class="status" id="status"></p>
+      </aside>
+
+      <section class="notebook">
+        <div class="page" id="page">
+          <canvas id="board" aria-label="Plansza gry w kropki"></canvas>
+          <div class="toast" id="toast"></div>
+        </div>
+      </section>
+    </main>
+
+    <footer class="foot">Kliknij skrzyżowanie linii, aby postawić kropkę. Kropki łączą się automatycznie, gdy otoczysz przeciwnika.</footer>
+  </div>
+
+  <dialog id="rules" class="sheet">
+    <h2>Zasady gry w kropki</h2>
+    <ol>
+      <li>Grają dwie osoby, na zmianę stawiając kropki na skrzyżowaniach linii.</li>
+      <li>Celem jest <b>otoczenie</b> kropek przeciwnika zamkniętym łańcuchem własnych kropek.</li>
+      <li>Łączyć można tylko kropki sąsiednie — w poziomie, w pionie lub po skosie (najbliższe otoczenie).</li>
+      <li>Gdy otoczysz kropki przeciwnika, gra sama je obrysuje — są „złapane” i liczą się jako Twoje punkty.</li>
+      <li>Złapanych kropek nie można już używać do budowania obwódek. Wnętrze zamkniętego obszaru jest zajęte.</li>
+      <li>Jeśli postawisz kropkę wewnątrz cudzego zamkniętego „domku”, zostanie od razu złapana.</li>
+      <li>Wygrywa osoba, która pozamyka więcej kropek. Gra kończy się, gdy zabraknie miejsc albo po kliknięciu „Koniec gry”.</li>
+    </ol>
+    <form method="dialog"><button class="btn primary">Do gry!</button></form>
+  </dialog>
+
+  <dialog id="over" class="sheet">
+    <h2 id="overTitle">Koniec gry</h2>
+    <p id="overText"></p>
+    <form method="dialog" class="row">
+      <button class="btn" value="close">Zobacz planszę</button>
+      <button class="btn primary" value="again">Jeszcze raz</button>
+    </form>
+  </dialog>
+
+  <script src="js/engine.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>

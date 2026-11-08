@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Notebook Dots — cover generator</title>
+<!--
+  Generator okładek i filmu dla CrazyGames.
+  Otwórz w przeglądarce o rozmiarze okna równym rozmiarowi okładki, np. 1920×1080, 800×1200, 800×800.
+  Parametry URL: ?seed=7&split=110&total=230&title=1
+  window.renderAt(ms) – rysuje klatkę filmu w chwili ms (0 = okładka).
+-->
+<link rel="stylesheet" href="../css/style.css">
+<style>
+  html, body { margin: 0; overflow: hidden; background: #fdfbf3; }
+  canvas { display: block; width: 100vw; height: 100vh; }
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<script src="../js/engine.js"></script>
+<script>
+(async () => {
+  const E = window.KropkiEngine;
+  const q = new URLSearchParams(location.search);
+  const W = innerWidth, H = innerHeight;
+  const seed0 = +(q.get('seed') || 7);
+  const showTitle = q.get('title') !== '0';
+
+  // deterministyczny generator losowy, żeby okładka i film były powtarzalne
+  let s = seed0 >>> 0;
+  Math.random = () => { s = (s + 0x6D2B79F5) >>> 0; let t = s; t = Math.imul(t ^ (t >>> 15), t | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61); return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
+
+  // siatka dopasowana do proporcji okładki
+  const cell = Math.round(Math.min(W, H) / (W > H ? 15 : 13.5));
+  const GW = Math.floor(W / cell) + 2, GH = Math.floor(H / cell) + 2;
+  const ox = (W - (GW - 1) * cell) / 2, oy = (H - (GH - 1) * cell) / 2;
+
+  // symulacja partii: komputer (trudny) kontra komputer (łatwy), tylko w środkowej części kartki
+  const st = E.createState(GW, GH);
+  const margin = 1;
+  for (let y = 0; y < GH; y++) for (let x = 0; x < GW; x++)
+    if (x < margin || y < margin || x >= GW - margin || y >= GH - margin - Math.round(GH * 0.22)) st.terr[y * GW + x] = 3; // poza grą
+  const total = +(q.get('total') || Math.round((GW - 2) * (GH - 2) * 0.5));
+  const split = +(q.get('split') || Math.round(total * 0.62));
+  const snaps = [{ owner: st.owner.slice(), cap: st.cap.slice(), caps: 0 }];
+  const capMove = []; // dla każdej obwódki: numer ruchu, w którym powstała
+  for (let k = 0; k < total; k++) {
+    const P = st.turn;
+    let i;
+    // drugi gracz czasem gra "na oko", żeby na kartce było więcej otoczeń (obu kolorów)
+    const weak = (k % 40 < 20) ? 2 : 1;
+    if (P === weak && Math.random() < 0.6) {
+      const near = [];
+      for (let j = 0; j < GW * GH; j++) {
+        if (!E.isLegal(st, j)) continue;
+        const x = j % GW, y = (j / GW) | 0;
+        let n = false;
+        for (let dy = -2; dy <= 2 && !n; dy++) for (let dx = -2; dx <= 2; dx++) { const X = x + dx, Y = y + dy; if (X >= 0 && Y >= 0 && X < GW && Y < GH && st.owner[Y * GW + X]) { n = true; break; } }
+        if (n) near.push(j);
+      }
+      i = near.length ? near[(Math.random() * near.length) | 0] : E.aiMove(st, P, 1);
+    } else i = E.aiMove(st, P, 2);
+    if (i < 0) break;
+    const before = st.captures.length;
+    E.applyMove(st, i, P, true);
+    for (let c = before; c < st.captures.length; c++) capMove[c] = k + 1;
+    snaps.push({ owner: st.owner.slice(), cap: st.cap.slice(), last: i });
+  }
+  const moves = snaps.length - 1;
+
+  const cv = document.getElementById('c');
+  const ctx = cv.getContext('2d');
+  const DPR = window.devicePixelRatio || 1;
+  cv.width = Math.round(W * DPR); cv.height = Math.round(H * DPR);
+  await document.fonts.load('700 80px Caveat');
+
+  const INK = { 1: '#1e4fd6', 2: '#d8342c' }, DARK = { 1: '#13369c', 2: '#9e1f19' }, LIGHT = { 1: '#4c78f0', 2: '#f0605a' };
+  const FILL = { 1: 'rgba(30,79,214,0.15)', 2: 'rgba(216,52,44,0.14)' }, HATCH = { 1: 'rgba(30,79,214,0.10)', 2: 'rgba(216,52,44,0.10)' };
+  const px = (x) => ox + x * cell, py = (y) => oy + y * cell;
+  const clamp01 = (t) => Math.max(0, Math.min(1, t));
+  const hash = (a, b, c, d) => { let h = (a * 73856093) ^ (b * 19349663) ^ (c * 83492791) ^ (d * 2654435761); h = (h ^ (h >>> 13)) * 1274126177; return ((h ^ (h >>> 16)) >>> 0) / 4294967295; };
+
+  function paper() {
+    ctx.fillStyle = '#fdfbf3'; ctx.fillRect(0, 0, W, H);
+    ctx.fillStyle = 'rgba(160,140,100,0.05)';
+    for (let k = 0; k < 600; k++) ctx.fillRect(hash(k, 7, 3, 1) * W, hash(k, 11, 5, 2) * H, 1 + hash(k, 1, 1, 1) * 3, 1.5);
+    ctx.strokeStyle = 'rgba(80,140,205,0.32)'; ctx.lineWidth = Math.max(1, cell / 40);
+    ctx.beginPath();
+    for (let x = 0; x < GW; x++) { ctx.moveTo(px(x), 0); ctx.lineTo(px(x), H); }
+    for (let y = 0; y < GH; y++) { ctx.moveTo(0, py(y)); ctx.lineTo(W, py(y)); }
+    ctx.stroke();
+    ctx.strokeStyle = 'rgba(220,70,70,0.5)'; ctx.lineWidth = Math.max(2, cell / 20);
+    ctx.beginPath(); ctx.moveTo(px(1) - cell * 0.35, 0); ctx.lineTo(px(1) - cell * 0.35, H); ctx.stroke();
+  }
+  function wob(x1, y1, x2, y2, prog) {
+    const X1 = px(x1), Y1 = py(y1), X2 = px(x2), Y2 = py(y2), dx = X2 - X1, dy = Y2 - Y1, len = Math.hypot(dx, dy);
+    const off = (hash(x1, y1, x2, y2) - 0.5) * cell * 0.16;
+    const cx = X1 + dx / 2 - dy / len * off, cy = Y1 + dy / 2 + dx / len * off;
+    ctx.moveTo(X1, Y1);
+    if (prog < 1) { const qx = X1 + (cx - X1) * prog, qy = Y1 + (cy - Y1) * prog, rx = cx + (X2 - cx) * prog, ry = cy + (Y2 - cy) * prog; ctx.quadraticCurveTo(qx, qy, qx + (rx - qx) * prog, qy + (ry - qy) * prog); }
+    else ctx.quadraticCurveTo(cx, cy, X2, Y2);
+  }
+  function dot(x, y, r, p, a) {
+    if (r <= 0) return;
+    ctx.globalAlpha = a;
+    const g = ctx.createRadialGradient(x - r * .35, y - r * .35, r * .1, x, y, r);
+    g.addColorStop(0, LIGHT[p]); g.addColorStop(.7, INK[p]); g.addColorStop(1, DARK[p]);
+    ctx.fillStyle = g; ctx.beginPath(); ctx.arc(x, y, r, 0, 7); ctx.fill(); ctx.globalAlpha = 1;
+  }
+  function titleNote(alpha) {
+    if (alpha <= 0) return;
+    let fs = Math.round(Math.min(W * (W > H ? 0.105 : 0.15), H * 0.16));
+    ctx.save();
+    ctx.globalAlpha = alpha;
+    ctx.font = `700 ${fs}px Caveat`;
+    const ratio = ctx.measureText('Notebook Dots').width / fs;
+    fs = Math.min(fs, Math.floor(W * 0.86 / (ratio + 1.5)));
+    ctx.font = `700 ${fs}px Caveat`;
+    const tw = ctx.measureText('Notebook Dots').width;
+    const bw = tw + fs * 1.5, bh = fs * 1.35;
+    const cx = W / 2, cy = H - bh * 0.5 - Math.min(W, H) * 0.07;
+    ctx.translate(cx, cy); ctx.rotate(-0.035);
+    ctx.shadowColor = 'rgba(0,0,0,0.28)'; ctx.shadowBlur = fs * 0.45; ctx.shadowOffsetY = fs * 0.12;
+    ctx.fillStyle = '#fff3a6'; ctx.fillRect(-bw / 2, -bh / 2, bw, bh);
+    ctx.shadowColor = 'transparent';
+    ctx.fillStyle = 'rgba(255,255,240,0.65)'; ctx.save(); ctx.rotate(0.06); ctx.fillRect(-fs * 0.9, -bh / 2 - fs * 0.16, fs * 1.8, fs * 0.36); ctx.restore();
+    ctx.fillStyle = '#2b2a33'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText('Notebook Dots', 0, fs * 0.04);
+    dot(-tw / 2 - fs * 0.38, -fs * 0.02, fs * 0.13, 1, 1);
+    dot(tw / 2 + fs * 0.38, -fs * 0.12, fs * 0.13, 2, 1);
+    ctx.restore();
+  }
+
+  // Oś czasu filmu: 0–1.6 s okładka, 1.6–2.4 s znika tytuł, potem kolejne ruchy aż do 18.5 s
+  const T_TITLE = 1600, T_FADE = 800, T_END = 18500;
+  const perMove = (T_END - 1000 - (T_TITLE + T_FADE)) / Math.max(1, moves - split);
+  const moveTime = (m) => (m <= split ? -1e9 : T_TITLE + T_FADE + (m - split - 1) * perMove);
+
+  window.renderAt = (ms) => {
+    ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+    let m = split;
+    if (ms > T_TITLE + T_FADE) m = Math.min(moves, split + Math.floor((ms - T_TITLE - T_FADE) / perMove) + 1);
+    const sn = snaps[m];
+    paper();
+    // obwódki
+    st.captures.forEach((c, ci) => {
+      if (capMove[ci] > m) return;
+      const p = clamp01((ms - moveTime(capMove[ci]) - 80) / 600);
+      ctx.globalAlpha = p; ctx.fillStyle = FILL[c.p]; ctx.beginPath();
+      for (const poly of c.polys) { ctx.moveTo(px(poly[0]), py(poly[1])); for (let k = 2; k < poly.length; k += 2) ctx.lineTo(px(poly[k]), py(poly[k + 1])); ctx.closePath(); }
+      ctx.fill(); ctx.save(); ctx.clip(); ctx.strokeStyle = HATCH[c.p]; ctx.lineWidth = Math.max(1.2, cell / 30); ctx.beginPath();
+      for (let d = -H; d < W + H; d += cell * 0.28) { ctx.moveTo(d, 0); ctx.lineTo(d - H, H); } ctx.stroke(); ctx.restore();
+      ctx.globalAlpha = 1; ctx.strokeStyle = INK[c.p]; ctx.lineWidth = cell * 0.085; ctx.lineCap = 'round'; ctx.beginPath();
+      const e = 1 - Math.pow(1 - p, 3);
+      for (let k = 0; k < c.edges.length; k += 4) wob(c.edges[k], c.edges[k + 1], c.edges[k + 2], c.edges[k + 3], e);
+      ctx.stroke();
+    });
+    // kropki
+    const r0 = cell * 0.22;
+    for (let i = 0; i < sn.owner.length; i++) {
+      const o = sn.owner[i]; if (!o) continue;
+      const x = px(i % GW), y = py((i / GW) | 0);
+      let sc = 1;
+      // animacja pojawienia się
+      for (let mm = m; mm > split && mm > m - 3; mm--) if (snaps[mm].last === i) { const t = clamp01((ms - moveTime(mm)) / 260); const c2 = 1.9; sc = 1 + (c2 + 1) * Math.pow(t - 1, 3) + c2 * Math.pow(t - 1, 2); }
+      const cap = sn.cap[i] !== 0;
+      dot(x, y, r0 * sc, o, cap ? 0.4 : 1);
+      if (cap) { ctx.strokeStyle = DARK[sn.cap[i]]; ctx.globalAlpha = .55; ctx.lineWidth = Math.max(1.5, cell / 25); ctx.beginPath(); ctx.moveTo(x - r0 * .8, y - r0 * .8); ctx.lineTo(x + r0 * .8, y + r0 * .8); ctx.stroke(); ctx.globalAlpha = 1; }
+    }
+    if (showTitle) titleNote(ms < T_TITLE ? 1 : 1 - clamp01((ms - T_TITLE) / T_FADE));
+  };
+  window.coverInfo = { moves, split, captures: st.captures.length, durationMs: T_END };
+  renderAt(0);
+  document.body.dataset.ready = '1';
+})();
+</script>
+</body>
+</html>

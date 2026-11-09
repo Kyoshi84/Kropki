@@ -10,7 +10,7 @@ Dwie osoby na zmianę stawiają kropki na skrzyżowaniach linii, próbując otoc
 
 ## Funkcje
 - 2 graczy na jednym ekranie lub gra z komputerem (łatwy / trudny)
-- 4 języki: angielski, polski, niemiecki, hiszpański (wybór automatyczny lub w menu)
+- 4 języki: angielski (domyślny), polski, niemiecki, hiszpański — zmiana w menu
 - trzy rozmiary kartki, cofanie ruchów, edytowalne imiona
 - grafika zeszytu w kratkę, atramentowe kropki, odręczne obwódki z animacją, dźwięki
 - mieści się w każdym oknie bez przewijania; mysz i dotyk

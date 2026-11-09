@@ -54,7 +54,7 @@ Ustawienia w Developer Portal:
 | Wymaganie | Stan |
 |---|---|
 | Rozmiar ≤ 50 MB, ≤ 1500 plików, tylko ścieżki względne | ✅ ok. 210 KB, 14 plików |
-| Język angielski + automatyczny wybór języka z SDK (`systemInfo.locale`), domyślnie angielski | ✅ EN, PL, DE, ES |
+| Język angielski jako domyślny + wybór języka z SDK (`systemInfo.locale`) | ✅ EN, PL, DE, ES |
 | Czytelność w oknach 907×510, 1216×684, 1077×606, 821×462, 1366×768, 1920×1080, 800×450, 1080×607 | ✅ bez przewijania, sprawdzone automatycznie |
 | `user-select: none` na `body` (mobile) | ✅ |
 | Mysz i dotyk | ✅ |

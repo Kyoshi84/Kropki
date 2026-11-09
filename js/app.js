@@ -460,8 +460,8 @@
   // ---------- start ----------
   async function boot() {
     await PF.init();
-    // język: zapisany wybór > ustawienie CrazyGames > przeglądarka > angielski
-    I.setLanguage(I.pickLanguage(store.get('lang'), PF.locale, navigator.language));
+    // język: zapisany wybór gracza > ustawienie CrazyGames (wymóg platformy) > angielski (domyślny)
+    I.setLanguage(I.pickLanguage(store.get('lang'), PF.locale));
     $('lang').innerHTML = I.SUPPORTED.map((c) => `<option value="${c}">${I.NATIVE[c]}</option>`).join('');
     $('lang').value = I.lang;
     const m = store.get('mode'); if (m && $('mode').querySelector(`option[value="${m}"]`)) $('mode').value = m; else $('mode').value = 'ai2';

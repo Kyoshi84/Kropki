@@ -99,6 +99,8 @@ input { -webkit-user-select: text; user-select: text; }
 
 .buttons { display: grid; grid-template-columns: 1fr 1fr; gap: clamp(5px, 1.2vh, 10px); }
 .buttons #newGame { grid-column: 1 / -1; }
+.buttons .hint-btn { grid-column: 1 / -1; background: #d9f5e3; }
+.btn[hidden] { display: none; }
 .btn {
   font-family: var(--hand2); font-size: clamp(15px, 2.9vh, 20px); padding: clamp(3px, .8vh, 7px) 10px;
   cursor: pointer; color: var(--ink); background: #fffef8; border: 2px solid #3a3946;
@@ -178,6 +180,7 @@ select {
   .status { font-size: clamp(18px, 2.8vh, 26px); }
   .buttons { grid-template-columns: 1fr 1fr 1fr; }
   .buttons #newGame { grid-column: auto; }
+  .buttons .hint-btn { grid-column: 1 / -1; }
   .btn { font-size: clamp(15px, 2.2vh, 19px); }
   .form { grid-template-columns: 1fr; }
   .hint { font-size: clamp(15px, 2.2vh, 20px); max-width: 76%; }

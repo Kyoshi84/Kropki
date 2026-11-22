@@ -21,6 +21,13 @@ Dwie osoby na zmianę stawiają kropki na skrzyżowaniach linii, próbując otoc
 - `promo/CRAZYGAMES.md` zawiera opisy (EN/PL/DE/ES), sterowanie i listę kontrolną wymagań
 - `promo/covers/` i `promo/video/` to okładki i filmy podglądowe, generowane przez `promo/cover.html`
 
+## Playgama
+- `tools/build-playgama.sh [wersja]` buduje paczkę `dist/notebook-dots-playgama-<wersja>.zip` z Playgama Bridge SDK
+  (podmienia skrypt CrazyGames na Bridge i `js/platform.js` na `js/platform-playgama.js`, dodaje `playgama/playgama-bridge-config.json`)
+- reklamy pełnoekranowe na naturalnych przerwach: koniec partii, „Nowa gra”, otwarcie menu (Bridge sam pilnuje odstępów)
+- reklama z nagrodą: przycisk „Podpowiedź” pokazuje najlepszy ruch (widoczny tylko, gdy platforma obsługuje takie reklamy)
+- zapis ustawień i bilansu z komputerem przez Bridge Storage, obsługa pauzy i wyciszenia z platformy
+
 ## Struktura
 | Plik | Zawartość |
 |---|---|
@@ -29,6 +36,7 @@ Dwie osoby na zmianę stawiają kropki na skrzyżowaniach linii, próbując otoc
 | `js/engine.js` | logika gry i przeciwnik komputerowy |
 | `js/i18n.js` | tłumaczenia |
 | `js/platform.js` | CrazyGames SDK (gameplay start/stop, język, wyciszenie) |
+| `js/platform-playgama.js` | Playgama Bridge SDK (reklamy, zapis, pauza, wyciszenie, język) |
 | `js/app.js` | rysowanie na canvas, obsługa myszy/dotyku, dźwięk |
 | `fonts/` | czcionki Caveat i Patrick Hand (SIL OFL) |
 | `PROMPT.md` | prompt opisujący grę |

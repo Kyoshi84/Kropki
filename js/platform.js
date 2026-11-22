@@ -55,6 +55,24 @@
     // Rzadkie, wyjątkowe osiągnięcie (np. wygrana z trudnym komputerem)
     happytime() { this._call('happytime'); },
 
+    // Wspólny interfejs z js/platform-playgama.js (na CrazyGames: zapis lokalny, bez reklam)
+    paused: false,
+    rewardedSupported: false,
+    onPause: null,
+    async load() {
+      const out = {};
+      ['lang', 'mode', 'size', 'sound', 'seenRules', 'wins', 'losses', 'draws'].forEach((k) => {
+        try { out[k] = localStorage.getItem('kropki.' + k); } catch (e) { out[k] = null; }
+      });
+      return out;
+    },
+    save(obj) {
+      Object.keys(obj).forEach((k) => { try { localStorage.setItem('kropki.' + k, String(obj[k])); } catch (e) { /* brak */ } });
+    },
+    gameReady() {}, levelStarted() {}, levelCompleted() {}, levelFailed() {},
+    interstitial() {},
+    rewarded(placement, onReward, onFail) { if (onFail) onFail(); },
+
     _call(name) {
       if (!this.sdk) return;
       try { this.sdk.game[name](); } catch (e) { /* ignoruj */ }

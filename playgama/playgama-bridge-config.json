@@ -1,0 +1,20 @@
+{
+    "advertisement": {
+        "interstitial": {
+            "placementFallback": "game_over",
+            "preloadOnStart": "game_over",
+            "placements": [
+                { "id": "game_over" },
+                { "id": "new_game" },
+                { "id": "menu" }
+            ]
+        },
+        "rewarded": {
+            "placementFallback": "hint",
+            "preloadOnStart": "hint",
+            "placements": [
+                { "id": "hint" }
+            ]
+        }
+    }
+}

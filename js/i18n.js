@@ -31,6 +31,7 @@
         'Wygrywa ten, kto złapie więcej kropek. Gra kończy się, gdy zabraknie miejsc albo po wybraniu „Koniec gry”.',
       ],
       rulesOk: 'Do gry!',
+      hintBtn: 'Podpowiedź (reklama)', record: 'bilans z komputerem {w}–{l}', adUnavailable: 'Reklama niedostępna — spróbuj za chwilę',
       dots: (k) => {
         if (k === 1) return 'kropkę';
         const d = k % 10, t = k % 100;
@@ -65,6 +66,7 @@
         'Whoever captures more dots wins. The game ends when the board is full or when you choose "End game".',
       ],
       rulesOk: "Let's play!",
+      hintBtn: 'Hint (watch ad)', record: 'vs computer {w}–{l}', adUnavailable: 'Ad not available — try again in a moment',
       dots: (k) => (k === 1 ? 'dot' : 'dots'),
     },
     de: {
@@ -95,6 +97,7 @@
         'Wer mehr Punkte fängt, gewinnt. Das Spiel endet, wenn das Feld voll ist oder du „Spiel beenden“ wählst.',
       ],
       rulesOk: 'Los geht’s!',
+      hintBtn: 'Tipp (Werbung)', record: 'gegen Computer {w}–{l}', adUnavailable: 'Werbung nicht verfügbar — versuche es gleich noch einmal',
       dots: (k) => (k === 1 ? 'Punkt' : 'Punkte'),
     },
     es: {
@@ -125,6 +128,7 @@
         'Gana quien atrape más puntos. La partida termina cuando no quedan sitios libres o al elegir «Terminar».',
       ],
       rulesOk: '¡A jugar!',
+      hintBtn: 'Pista (anuncio)', record: 'contra el ordenador {w}–{l}', adUnavailable: 'Anuncio no disponible — inténtalo en un momento',
       dots: (k) => (k === 1 ? 'punto' : 'puntos'),
     },
   };

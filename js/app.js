@@ -29,11 +29,11 @@
   const dotAnims = new Map();
   let floaters = [];
 
-  // ---------- zapisywanie ustawień (opcjonalne) ----------
-  const store = {
-    get(k) { try { return localStorage.getItem('kropki.' + k); } catch (e) { return null; } },
-    set(k, v) { try { localStorage.setItem('kropki.' + k, v); } catch (e) { /* brak dostępu */ } },
-  };
+  // ---------- zapisywanie ustawień i bilansu (przez platformę) ----------
+  let saved = {};
+  const stats = { wins: 0, losses: 0, draws: 0 };
+  let paused = false;      // pauza zgłoszona przez platformę (reklama, zmiana karty)
+  let hintCell = -1, hintUntil = 0, hintBusy = false;
 
   // ---------- pomocnicze ----------
   const nameOf = (p) => ($('name' + p).value.trim() || defaultName(p));
@@ -52,7 +52,7 @@
 
   // ---------- dźwięk (Web Audio, bez plików) ----------
   let actx = null;
-  const audible = () => soundOn && !PF.muted;
+  const audible = () => soundOn && !PF.muted && !paused;
   function audio() {
     if (!audible()) return null;
     if (!actx) { try { actx = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) { return null; } }
@@ -118,29 +118,40 @@
     over = false; busy = false; hover = -1;
     dotAnims.clear(); floaters = [];
     [1, 2].forEach((p) => { if (!customName[p]) $('name' + p).value = defaultName(p); });
+    hintCell = -1;
     $('hint').classList.remove('hidden');
     layout();
     updateUI();
+    PF.levelStarted();
     if (!anyDialogOpen()) PF.gameplayStart();
   }
 
+  // Nowa partia na żądanie gracza = naturalna przerwa: najpierw reklama (Bridge decyduje, czy ją pokazać)
+  function newGameWithBreak() {
+    PF.interstitial('new_game');
+    newGame();
+  }
+
   function tryPlay(i) {
-    if (busy || over || !state || !E.isLegal(state, i)) return;
+    if (busy || over || paused || !state || !E.isLegal(state, i)) return;
     if (isAiGame() && state.turn === AI) return;
     doMove(i);
     if (!over && isAiGame() && state.turn === AI) {
       busy = true; updateUI();
-      setTimeout(() => {
+      const aiTurn = () => {
         if (!state || over) { busy = false; return; }
+        if (paused) { setTimeout(aiTurn, 250); return; }
         const c = E.aiMove(state, AI, mode === 'ai2' ? 2 : 1);
         if (c >= 0) doMove(c);
         busy = false; updateUI();
-      }, 380 + Math.random() * 300);
+      };
+      setTimeout(aiTurn, 380 + Math.random() * 300);
     }
   }
 
   function doMove(i) {
     history.push(E.cloneState(state));
+    hintCell = -1;
     const P = state.turn;
     const before = state.captures.length;
     const res = E.applyMove(state, i, P, true);
@@ -169,6 +180,7 @@
   function undo() {
     if (busy || history.length === 0) return;
     state = history.pop();
+    hintCell = -1;
     while (isAiGame() && state.turn === AI && history.length) state = history.pop();
     if (over) { over = false; PF.gameplayStart(); }
     updateUI();
@@ -179,21 +191,51 @@
     over = true;
     PF.gameplayStop();
     const s1 = E.score(state, 1), s2 = E.score(state, 2);
-    let title;
+    let title, result = 'draw';
     if (s1 === s2) title = t('draw');
     else {
       const w = s1 > s2 ? 1 : 2;
-      if (isAiGame() && w === AI) title = t('cpuWins');
+      if (isAiGame() && w === AI) { title = t('cpuWins'); result = 'loss'; }
       else {
         title = t('wins', { n: nameOf(w) });
+        result = 'win';
         sfx.win();
         if (mode === 'ai2') PF.happytime(); // rzadkie osiągnięcie: pokonanie trudnego komputera
       }
     }
+    if (result === 'loss') PF.levelFailed(); else PF.levelCompleted();
+    let text = t('score', { a: s1, b: s2 });
+    if (isAiGame()) {
+      if (result === 'win') stats.wins++; else if (result === 'loss') stats.losses++; else stats.draws++;
+      PF.save({ wins: stats.wins, losses: stats.losses, draws: stats.draws });
+      text += ' · ' + t('record', { w: stats.wins, l: stats.losses });
+    }
     $('overTitle').textContent = title;
-    $('overText').textContent = t('score', { a: s1, b: s2 });
+    $('overText').textContent = text;
     updateUI();
     openDialog('over');
+    PF.interstitial('game_over'); // koniec partii — naturalna przerwa
+  }
+
+  // ---------- podpowiedź za reklamę z nagrodą ----------
+  function askHint() {
+    if (hintBusy || busy || over || paused || !state) return;
+    if (isAiGame() && state.turn === AI) return;
+    hintBusy = true; updateUI();
+    PF.gameplayStop();
+    PF.rewarded('hint', () => {
+      hintBusy = false;
+      if (!state || over) { updateUI(); return; }
+      const c = E.aiMove(state, state.turn, 2);
+      if (c >= 0) { hintCell = c; hintUntil = performance.now() + 6000; }
+      PF.gameplayStart();
+      updateUI();
+    }, () => {
+      hintBusy = false;
+      toast(t('adUnavailable'), state ? state.turn : 1);
+      if (!anyDialogOpen()) PF.gameplayStart();
+      updateUI();
+    });
   }
 
   // ---------- okna dialogowe + zdarzenia gameplay start/stop ----------
@@ -236,6 +278,8 @@
     $('card1').classList.toggle('active', !over && state.turn === 1);
     $('card2').classList.toggle('active', !over && state.turn === 2);
     $('undo').disabled = history.length === 0 || busy;
+    $('hintBtn').hidden = !PF.rewardedSupported;
+    $('hintBtn').disabled = over || busy || hintBusy || (isAiGame() && state.turn === AI);
     $('endGame').disabled = over;
     let st;
     if (over) st = t('gameOver');
@@ -376,6 +420,16 @@
       ctx.beginPath(); ctx.arc(x, y, r0 * (1.7 + 0.3 * pulse), 0, Math.PI * 2); ctx.stroke();
       ctx.globalAlpha = 1;
     }
+    if (hintCell >= 0 && !over && now < hintUntil && state.owner[hintCell] === 0) {
+      const x = px(hintCell % W), y = py((hintCell / W) | 0);
+      const pulse = 0.5 + 0.5 * Math.sin(now / 160);
+      ctx.strokeStyle = '#1f9d55';
+      ctx.lineWidth = 3;
+      ctx.globalAlpha = 0.55 + 0.4 * pulse;
+      ctx.beginPath(); ctx.arc(x, y, r0 * (1.4 + 0.5 * pulse), 0, Math.PI * 2); ctx.stroke();
+      ctx.globalAlpha = 1;
+      inkDot(x, y, r0 * 0.8, state.turn, 0.3);
+    }
     if (hover >= 0 && !over && !busy && E.isLegal(state, hover) && !(isAiGame() && state.turn === AI)) {
       inkDot(px(hover % W), py((hover / W) | 0), r0, state.turn, 0.35);
     }
@@ -426,25 +480,29 @@
   });
   document.addEventListener('contextmenu', (e) => { if (e.target.tagName !== 'INPUT') e.preventDefault(); });
 
-  $('newGame').addEventListener('click', newGame);
+  $('newGame').addEventListener('click', newGameWithBreak);
+  $('hintBtn').addEventListener('click', askHint);
   $('undo').addEventListener('click', undo);
-  $('menuBtn').addEventListener('click', () => openDialog('menu'));
+  $('menuBtn').addEventListener('click', () => { openDialog('menu'); PF.interstitial('menu'); });
   $('menuClose').addEventListener('click', () => closeDialog('menu'));
   $('rulesBtn').addEventListener('click', () => { closeDialog('menu'); openDialog('rules'); });
   $('rulesClose').addEventListener('click', () => closeDialog('rules'));
   $('endGame').addEventListener('click', () => { closeDialog('menu'); if (!over && !busy) finish(); });
   $('overView').addEventListener('click', () => closeDialog('over'));
   $('overAgain').addEventListener('click', () => { closeDialog('over'); newGame(); });
+  $('rules').addEventListener('close', () => {
+    if (saved.seenRules !== '1') { saved.seenRules = '1'; PF.save({ seenRules: '1' }); }
+  });
   $('soundBtn').addEventListener('click', () => {
     soundOn = !soundOn;
-    store.set('sound', soundOn ? '1' : '0');
+    PF.save({ sound: soundOn ? '1' : '0' });
     updateSoundBtn();
   });
-  $('mode').addEventListener('change', () => { store.set('mode', $('mode').value); newGame(); });
-  $('size').addEventListener('change', () => { store.set('size', $('size').value); newGame(); });
+  $('mode').addEventListener('change', () => { PF.save({ mode: $('mode').value }); newGame(); });
+  $('size').addEventListener('change', () => { PF.save({ size: $('size').value }); newGame(); });
   $('lang').addEventListener('change', () => {
     I.setLanguage($('lang').value);
-    store.set('lang', I.lang);
+    PF.save({ lang: I.lang });
     applyLanguage();
   });
   [1, 2].forEach((p) => {
@@ -452,7 +510,12 @@
     el.addEventListener('input', () => { customName[p] = el.value.trim() !== ''; updateUI(); });
     el.addEventListener('keydown', (e) => { if (e.key === 'Enter') el.blur(); });
   });
-  PF.onSettings = () => updateSoundBtn();
+  PF.onSettings = () => { updateSoundBtn(); syncAudio(); };
+  PF.onPause = (p) => { paused = p; syncAudio(); updateUI(); };
+  function syncAudio() {
+    if (!actx) return;
+    if (audible()) actx.resume().catch(() => {}); else actx.suspend().catch(() => {});
+  }
 
   new ResizeObserver(() => layout()).observe(canvas);
   window.__kropki = { view, get state() { return state; } }; // do debugowania w konsoli
@@ -460,17 +523,23 @@
   // ---------- start ----------
   async function boot() {
     await PF.init();
-    // język: zapisany wybór gracza > ustawienie CrazyGames (wymóg platformy) > angielski (domyślny)
+    paused = !!PF.paused;
+    saved = await PF.load();
+    stats.wins = +saved.wins || 0; stats.losses = +saved.losses || 0; stats.draws = +saved.draws || 0;
+    const store = { get: (k) => saved[k] };
+    // język: zapisany wybór gracza > język platformy (wymóg platformy) > angielski (domyślny)
     I.setLanguage(I.pickLanguage(store.get('lang'), PF.locale));
     $('lang').innerHTML = I.SUPPORTED.map((c) => `<option value="${c}">${I.NATIVE[c]}</option>`).join('');
     $('lang').value = I.lang;
     const m = store.get('mode'); if (m && $('mode').querySelector(`option[value="${m}"]`)) $('mode').value = m; else $('mode').value = 'ai2';
-    const s = store.get('size'); if (s && $('size').querySelector(`option[value="${s}"]`)) $('size').value = s; else $('size').value = '24x18';
+    const s = store.get('size'); if (s && $('size').querySelector(`option[value="${s}"]`)) $('size').value = s; else $('size').value = '16x12'; // mała kartka: partia ok. 5 minut
     soundOn = store.get('sound') !== '0';
     mode = $('mode').value;
     applyLanguage();
     newGame();
     requestAnimationFrame(frame);
+    PF.gameReady();
+    if (saved.seenRules !== '1') openDialog('rules'); // pierwsze uruchomienie: krótkie zasady
   }
   boot();
 })();

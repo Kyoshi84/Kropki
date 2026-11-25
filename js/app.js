@@ -752,7 +752,8 @@
     newGame();
     requestAnimationFrame(frame);
     PF.gameReady();
-    if (saved.seenRules !== '1') openDialog('rules'); // pierwsze uruchomienie: krótkie zasady
+    // pierwsze uruchomienie: od razu interaktywny samouczek (stali gracze, którzy znają zasady, go pomijają)
+    if (saved.seenTutorial !== '1' && saved.seenRules !== '1') startTutorial();
   }
   boot();
 })();

@@ -6,7 +6,8 @@
             "placements": [
                 { "id": "game_over" },
                 { "id": "new_game" },
-                { "id": "menu" }
+                { "id": "menu" },
+                { "id": "tutorial_done" }
             ]
         },
         "rewarded": {

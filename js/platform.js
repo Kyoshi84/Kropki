@@ -61,7 +61,7 @@
     onPause: null,
     async load() {
       const out = {};
-      ['lang', 'mode', 'size', 'sound', 'seenRules', 'wins', 'losses', 'draws'].forEach((k) => {
+      ['lang', 'mode', 'size', 'sound', 'seenRules', 'wins', 'losses', 'draws', 'color1', 'color2', 'starter', 'seenTutorial'].forEach((k) => {
         try { out[k] = localStorage.getItem('kropki.' + k); } catch (e) { out[k] = null; }
       });
       return out;

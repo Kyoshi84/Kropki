@@ -6,7 +6,7 @@
 (function (root) {
   'use strict';
 
-  const KEYS = ['lang', 'mode', 'size', 'sound', 'seenRules', 'wins', 'losses', 'draws'];
+  const KEYS = ['lang', 'mode', 'size', 'sound', 'seenRules', 'wins', 'losses', 'draws', 'color1', 'color2', 'starter', 'seenTutorial'];
 
   const P = {
     sdk: null,

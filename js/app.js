@@ -10,12 +10,24 @@
   const ctx = canvas.getContext('2d');
   const page = $('page');
 
-  const INK = { 1: '#1e4fd6', 2: '#d8342c' };
-  const INK_DARK = { 1: '#13369c', 2: '#9e1f19' };
-  const INK_LIGHT = { 1: '#4c78f0', 2: '#f0605a' };
-  const FILL = { 1: 'rgba(30,79,214,0.15)', 2: 'rgba(216,52,44,0.14)' };
-  const HATCH = { 1: 'rgba(30,79,214,0.10)', 2: 'rgba(216,52,44,0.10)' };
+  // Kolory atramentu do wyboru w menu
+  const PALETTE = {
+    blue:   { ink: '#1e4fd6', dark: '#13369c', light: '#4c78f0', bg1: '#e3efff', bg2: '#d3e4ff' },
+    red:    { ink: '#d8342c', dark: '#9e1f19', light: '#f0605a', bg1: '#ffe7e2', bg2: '#ffd9d2' },
+    green:  { ink: '#1f9d48', dark: '#14692f', light: '#4cc472', bg1: '#e2f6e6', bg2: '#d0efd7' },
+    purple: { ink: '#7a3fc9', dark: '#522690', light: '#9f6be6', bg1: '#efe5ff', bg2: '#e3d4fb' },
+    orange: { ink: '#e47a0f', dark: '#a35406', light: '#f6a04a', bg1: '#fff0dd', bg2: '#ffe3c2' },
+    black:  { ink: '#2b2a33', dark: '#121117', light: '#5a5968', bg1: '#ececee', bg2: '#dedee2' },
+  };
+  const COLOR_KEYS = Object.keys(PALETTE);
+  const colors = { 1: 'blue', 2: 'red' };
+  const INK = {}, INK_DARK = {}, INK_LIGHT = {}, FILL = {}, HATCH = {};
   const AI = 2;
+
+  // Samouczek: plansza 9×9, kropka komputera w środku, gracz otacza ją w 4 ruchach
+  const TUT = { W: 9, H: 9, cpuDot: [4, 4], targets: [[4, 3], [5, 4], [4, 5], [3, 4]], cpuMoves: [[1, 1], [7, 7], [1, 7]] };
+  let tut = null;
+  let aiToken = 0; // unieważnia zaplanowane ruchy komputera po rozpoczęciu nowej partii
 
   let state = null;
   let history = [];
@@ -35,9 +47,60 @@
   let paused = false;      // pauza zgłoszona przez platformę (reklama, zmiana karty)
   let hintCell = -1, hintUntil = 0, hintBusy = false;
 
+  // ---------- kolory graczy ----------
+  function rgba(hex, a) {
+    const n = parseInt(hex.slice(1), 16);
+    return `rgba(${n >> 16},${(n >> 8) & 255},${n & 255},${a})`;
+  }
+  function applyColors() {
+    const root = document.documentElement.style;
+    [1, 2].forEach((p) => {
+      const c = PALETTE[colors[p]];
+      INK[p] = c.ink; INK_DARK[p] = c.dark; INK_LIGHT[p] = c.light;
+      FILL[p] = rgba(c.ink, 0.15); HATCH[p] = rgba(c.ink, 0.10);
+      root.setProperty(`--c${p}`, c.ink);
+      root.setProperty(`--c${p}-bg1`, c.bg1);
+      root.setProperty(`--c${p}-bg2`, c.bg2);
+    });
+  }
+  function renderSwatches() {
+    [1, 2].forEach((p) => {
+      const box = $('sw' + p);
+      box.innerHTML = '';
+      COLOR_KEYS.forEach((k) => {
+        const b = document.createElement('button');
+        b.type = 'button';
+        b.className = 'swatch' + (colors[p] === k ? ' selected' : '');
+        b.style.background = PALETTE[k].ink;
+        b.title = t('col_' + k);
+        b.setAttribute('aria-label', t('col_' + k));
+        b.setAttribute('aria-pressed', colors[p] === k ? 'true' : 'false');
+        b.addEventListener('click', () => setColor(p, k));
+        box.appendChild(b);
+      });
+    });
+    const ai = isAiGame() || tut;
+    $('colorLabel1').textContent = ai ? t('colorYou') : t('color1');
+    $('colorLabel2').textContent = ai ? t('colorCpu') : t('color2');
+  }
+  function setColor(p, k) {
+    if (colors[p] === k) return;
+    if (colors[3 - p] === k) colors[3 - p] = colors[p]; // ten sam kolor — zamień się z rywalem
+    colors[p] = k;
+    PF.save({ color1: colors[1], color2: colors[2] });
+    applyColors();
+    applyLanguage();
+  }
+  function updateStarterLabels() {
+    const opts = $('starter').options;
+    const ai = isAiGame();
+    opts[0].textContent = ai ? t('you') : nameOf(1);
+    opts[1].textContent = ai ? t('cpu') : nameOf(2);
+  }
+
   // ---------- pomocnicze ----------
   const nameOf = (p) => ($('name' + p).value.trim() || defaultName(p));
-  const defaultName = (p) => (p === 1 ? t('p1') : (mode !== 'pvp' ? t('cpu') : t('p2')));
+  const defaultName = (p) => ((p === 2 && (mode !== 'pvp' || tut)) ? t('cpu') : t('col_' + colors[p]));
   const isAiGame = () => mode !== 'pvp';
   const px = (x) => view.ox + x * view.cell;
   const py = (y) => view.oy + y * view.cell;
@@ -98,6 +161,9 @@
       if (!customName[p]) $('name' + p).value = defaultName(p);
     });
     updateSoundBtn();
+    renderSwatches();
+    updateStarterLabels();
+    if (tut && !over) showCoach();
     updateUI();
   }
   function updateSoundBtn() {
@@ -114,6 +180,10 @@
     const r = canvas.getBoundingClientRect();
     if (r.width < r.height * 0.9) [W, H] = [H, W]; // ekran pionowy – obróć kartkę
     state = E.createState(W, H);
+    const st = $('starter').value;
+    state.turn = st === 'random' ? (Math.random() < 0.5 ? 1 : 2) : (st === 'p2' ? 2 : 1);
+    endTutorialUI();
+    aiToken++;
     history = [];
     over = false; busy = false; hover = -1;
     dotAnims.clear(); floaters = [];
@@ -124,6 +194,88 @@
     updateUI();
     PF.levelStarted();
     if (!anyDialogOpen()) PF.gameplayStart();
+    if (isAiGame() && state.turn === AI) scheduleAi(); // komputer zaczyna
+  }
+
+  // ---------- samouczek ----------
+  const tutIndex = ([x, y]) => y * state.W + x;
+  function startTutorial() {
+    document.querySelectorAll('dialog').forEach((d) => { if (d.open) d.close(); });
+    state = E.createState(TUT.W, TUT.H);
+    state.owner[tutIndex(TUT.cpuDot)] = AI; // kropka komputera, którą gracz otoczy
+    state.turn = 1;
+    tut = { step: 0 };
+    aiToken++;
+    history = [];
+    over = false; busy = false; hover = -1; hintCell = -1;
+    dotAnims.clear(); floaters = [];
+    dotAnims.set(tutIndex(TUT.cpuDot), performance.now());
+    [1, 2].forEach((p) => { if (!customName[p]) $('name' + p).value = defaultName(p); });
+    $('hint').classList.add('hidden');
+    layout();
+    showCoach();
+    renderSwatches();
+    updateUI();
+    PF.levelStarted();
+    PF.gameplayStart();
+  }
+  function endTutorialUI() {
+    if (!tut) return;
+    tut = null;
+    $('coach').hidden = true;
+    layout();
+  }
+  function setCoach(text, step) {
+    const c = $('coach');
+    c.hidden = false;
+    $('coachStep').textContent = step != null ? t('tutStep', { k: step + 1 }) : '';
+    $('coachText').textContent = text;
+    layout();
+  }
+  function showCoach() { setCoach(t('tut' + (tut.step + 1)), tut.step); }
+  function nudgeCoach() {
+    const c = $('coach');
+    c.classList.remove('nudge'); void c.offsetWidth; c.classList.add('nudge');
+    toast(t('tutWrong'), 1);
+  }
+  function tutorialPlay(i) {
+    if (state.turn !== 1 || tut.done) return;
+    if (i !== tutIndex(TUT.targets[tut.step])) { nudgeCoach(); return; }
+    doMove(i);
+    if (tut.step === TUT.targets.length - 1) { // ostatnia kropka zamyka pętlę
+      tut.done = true;
+      busy = true; updateUI();
+      const tok = aiToken;
+      setTimeout(() => { if (tok === aiToken) finishTutorial(); }, 1400);
+      return;
+    }
+    busy = true;
+    setCoach(t('tutCpu'));
+    updateUI();
+    const tok = aiToken;
+    const cpuTurn = () => {
+      if (tok !== aiToken || !tut || !state) return;
+      if (paused) { setTimeout(cpuTurn, 250); return; }
+      doMove(tutIndex(TUT.cpuMoves[tut.step])); // komputer gra daleko i daje się otoczyć
+      tut.step++;
+      busy = false;
+      showCoach();
+      updateUI();
+    };
+    setTimeout(cpuTurn, 750);
+  }
+  function finishTutorial() {
+    if (!tut) return;
+    busy = false;
+    over = true;
+    $('coach').hidden = true;
+    PF.gameplayStop();
+    PF.levelCompleted();
+    PF.save({ seenTutorial: '1' });
+    sfx.win();
+    updateUI();
+    openDialog('tutDone');
+    PF.interstitial('tutorial_done'); // koniec samouczka — naturalna przerwa
   }
 
   // Nowa partia na żądanie gracza = naturalna przerwa: najpierw reklama (Bridge decyduje, czy ją pokazać)
@@ -134,19 +286,25 @@
 
   function tryPlay(i) {
     if (busy || over || paused || !state || !E.isLegal(state, i)) return;
+    if (tut) { tutorialPlay(i); return; }
     if (isAiGame() && state.turn === AI) return;
     doMove(i);
-    if (!over && isAiGame() && state.turn === AI) {
-      busy = true; updateUI();
-      const aiTurn = () => {
-        if (!state || over) { busy = false; return; }
-        if (paused) { setTimeout(aiTurn, 250); return; }
-        const c = E.aiMove(state, AI, mode === 'ai2' ? 2 : 1);
-        if (c >= 0) doMove(c);
-        busy = false; updateUI();
-      };
-      setTimeout(aiTurn, 380 + Math.random() * 300);
-    }
+    if (!over && isAiGame() && state.turn === AI) scheduleAi();
+  }
+
+  function scheduleAi() {
+    busy = true; updateUI();
+    const tok = ++aiToken;
+    const aiTurn = () => {
+      if (tok !== aiToken) return; // w międzyczasie zaczęła się nowa partia
+      if (!state || over || tut) { busy = false; updateUI(); return; }
+      if (paused) { setTimeout(aiTurn, 250); return; }
+      if (!isAiGame() || state.turn !== AI) { busy = false; updateUI(); return; }
+      const c = E.aiMove(state, AI, mode === 'ai2' ? 2 : 1);
+      if (c >= 0) doMove(c);
+      busy = false; updateUI();
+    };
+    setTimeout(aiTurn, 380 + Math.random() * 300);
   }
 
   function doMove(i) {
@@ -178,12 +336,13 @@
   }
 
   function undo() {
-    if (busy || history.length === 0) return;
+    if (busy || tut || history.length === 0) return;
     state = history.pop();
     hintCell = -1;
     while (isAiGame() && state.turn === AI && history.length) state = history.pop();
     if (over) { over = false; PF.gameplayStart(); }
     updateUI();
+    if (isAiGame() && state.turn === AI) scheduleAi();
   }
 
   function finish() {
@@ -277,12 +436,14 @@
     $('score2').textContent = E.score(state, 2);
     $('card1').classList.toggle('active', !over && state.turn === 1);
     $('card2').classList.toggle('active', !over && state.turn === 2);
-    $('undo').disabled = history.length === 0 || busy;
+    const onlyAiOpening = isAiGame() && history.length === 1 && history[0].turn === AI;
+    $('undo').disabled = history.length === 0 || busy || !!tut || onlyAiOpening;
     $('hintBtn').hidden = !PF.rewardedSupported;
-    $('hintBtn').disabled = over || busy || hintBusy || (isAiGame() && state.turn === AI);
+    $('hintBtn').disabled = over || busy || hintBusy || !!tut || (isAiGame() && state.turn === AI);
     $('endGame').disabled = over;
     let st;
-    if (over) st = t('gameOver');
+    if (tut && !over) st = t('tutorial');
+    else if (over) st = t('gameOver');
     else if (busy) st = t('thinking');
     else if (isAiGame()) st = state.turn === 1 ? t('statusYou') : t('statusCpu');
     else st = t('statusTurn', { n: nameOf(state.turn) });
@@ -298,9 +459,13 @@
     canvas.height = Math.max(1, Math.round(r.height * view.dpr));
     if (!state) return;
     const m = Math.max(14, Math.min(r.width, r.height) * 0.04);
-    view.cell = Math.min((r.width - 2 * m) / (state.W - 1), (r.height - 2 * m) / (state.H - 1));
+    // w samouczku notatka z instrukcją dostaje własne miejsce pod planszą
+    const coach = $('coach');
+    const reserve = tut && !coach.hidden ? coach.offsetHeight + 18 : 0;
+    const usableH = r.height - reserve;
+    view.cell = Math.min((r.width - 2 * m) / (state.W - 1), (usableH - 2 * m) / (state.H - 1));
     view.ox = (r.width - (state.W - 1) * view.cell) / 2;
-    view.oy = (r.height - (state.H - 1) * view.cell) / 2;
+    view.oy = (usableH - (state.H - 1) * view.cell) / 2;
   }
 
   function wobblyLine(x1, y1, x2, y2, seed, prog) {
@@ -420,6 +585,7 @@
       ctx.beginPath(); ctx.arc(x, y, r0 * (1.7 + 0.3 * pulse), 0, Math.PI * 2); ctx.stroke();
       ctx.globalAlpha = 1;
     }
+    if (tut && !over && !busy && state.turn === 1) drawTutorialArrow(tutIndex(TUT.targets[tut.step]), r0, now);
     if (hintCell >= 0 && !over && now < hintUntil && state.owner[hintCell] === 0) {
       const x = px(hintCell % W), y = py((hintCell / W) | 0);
       const pulse = 0.5 + 0.5 * Math.sin(now / 160);
@@ -433,6 +599,35 @@
     if (hover >= 0 && !over && !busy && E.isLegal(state, hover) && !(isAiGame() && state.turn === AI)) {
       inkDot(px(hover % W), py((hover / W) | 0), r0, state.turn, 0.35);
     }
+  }
+
+  // Odręczna strzałka wskazująca miejsce na kolejną kropkę
+  function drawTutorialArrow(i, r0, now) {
+    const W = state.W, x = px(i % W), y = py((i / W) | 0);
+    const pulse = 0.5 + 0.5 * Math.sin(now / 200);
+    ctx.strokeStyle = INK[1];
+    ctx.lineWidth = 2.5;
+    ctx.globalAlpha = 0.45 + 0.4 * pulse;
+    ctx.beginPath(); ctx.arc(x, y, r0 * (1.5 + 0.5 * pulse), 0, Math.PI * 2); ctx.stroke();
+    ctx.globalAlpha = 1;
+    inkDot(x, y, r0, 1, 0.25 + 0.2 * pulse);
+    // strzałka z góry (albo z dołu, gdy punkt jest przy górnej krawędzi)
+    const dir = ((i / W) | 0) < 2 ? 1 : -1;
+    const bob = Math.sin(now / 240) * view.cell * 0.15;
+    const tipY = y + dir * (r0 * 2.3 + bob);
+    const len = Math.max(30, view.cell * 1.4);
+    const tailY = tipY + dir * len;
+    const head = Math.max(9, view.cell * 0.32);
+    ctx.strokeStyle = '#2b2a33';
+    ctx.lineWidth = Math.max(3, view.cell * 0.09);
+    ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+    ctx.beginPath();
+    ctx.moveTo(x + len * 0.12, tailY);
+    ctx.quadraticCurveTo(x - len * 0.08, (tipY + tailY) / 2, x, tipY);
+    ctx.moveTo(x - head * 0.8, tipY + dir * head);
+    ctx.lineTo(x, tipY);
+    ctx.lineTo(x + head * 0.8, tipY + dir * head);
+    ctx.stroke();
   }
 
   function drawFloaters(now) {
@@ -487,7 +682,20 @@
   $('menuClose').addEventListener('click', () => closeDialog('menu'));
   $('rulesBtn').addEventListener('click', () => { closeDialog('menu'); openDialog('rules'); });
   $('rulesClose').addEventListener('click', () => closeDialog('rules'));
-  $('endGame').addEventListener('click', () => { closeDialog('menu'); if (!over && !busy) finish(); });
+  $('endGame').addEventListener('click', () => {
+    closeDialog('menu');
+    if (tut) { newGame(); return; }
+    if (!over && !busy) finish();
+  });
+  $('tutorialBtn').addEventListener('click', startTutorial);
+  $('rulesTutorial').addEventListener('click', startTutorial);
+  $('tutPlay').addEventListener('click', () => {
+    if ($('mode').value === 'pvp') $('mode').value = 'ai1';
+    mode = $('mode').value;
+    closeDialog('tutDone');
+    newGame();
+  });
+  $('starter').addEventListener('change', () => { PF.save({ starter: $('starter').value }); if (!tut) newGame(); });
   $('overView').addEventListener('click', () => closeDialog('over'));
   $('overAgain').addEventListener('click', () => { closeDialog('over'); newGame(); });
   $('rules').addEventListener('close', () => {
@@ -498,7 +706,7 @@
     PF.save({ sound: soundOn ? '1' : '0' });
     updateSoundBtn();
   });
-  $('mode').addEventListener('change', () => { PF.save({ mode: $('mode').value }); newGame(); });
+  $('mode').addEventListener('change', () => { PF.save({ mode: $('mode').value }); mode = $('mode').value; applyLanguage(); newGame(); });
   $('size').addEventListener('change', () => { PF.save({ size: $('size').value }); newGame(); });
   $('lang').addEventListener('change', () => {
     I.setLanguage($('lang').value);
@@ -534,6 +742,11 @@
     const m = store.get('mode'); if (m && $('mode').querySelector(`option[value="${m}"]`)) $('mode').value = m; else $('mode').value = 'ai2';
     const s = store.get('size'); if (s && $('size').querySelector(`option[value="${s}"]`)) $('size').value = s; else $('size').value = '16x12'; // mała kartka: partia ok. 5 minut
     soundOn = store.get('sound') !== '0';
+    const c1 = store.get('color1'), c2 = store.get('color2');
+    if (PALETTE[c1] && PALETTE[c2] && c1 !== c2) { colors[1] = c1; colors[2] = c2; }
+    applyColors();
+    const st = store.get('starter');
+    $('starter').value = ['p1', 'p2', 'random'].includes(st) ? st : 'p1';
     mode = $('mode').value;
     applyLanguage();
     newGame();

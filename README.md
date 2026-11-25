@@ -10,6 +10,8 @@ Dwie osoby na zmianę stawiają kropki na skrzyżowaniach linii, próbując otoc
 
 ## Funkcje
 - 2 graczy na jednym ekranie lub gra z komputerem (łatwy / trudny)
+- interaktywny samouczek (Menu → Samouczek): strzałka i podpowiedzi krok po kroku, kończy się otoczeniem kropki komputera
+- wybór koloru kropek (6 kolorów) i tego, kto zaczyna (gracz, komputer, losowo)
 - 4 języki: angielski (domyślny), polski, niemiecki, hiszpański — zmiana w menu
 - trzy rozmiary kartki, cofanie ruchów, edytowalne imiona
 - grafika zeszytu w kratkę, atramentowe kropki, odręczne obwódki z animacją, dźwięki

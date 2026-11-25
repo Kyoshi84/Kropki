@@ -52,6 +52,7 @@
         <canvas id="board"></canvas>
         <div class="hint" id="hint" data-i18n="hint"></div>
         <div class="toast" id="toast"></div>
+        <div class="coach" id="coach" hidden><span class="coach-step" id="coachStep"></span><span id="coachText"></span></div>
       </div>
     </main>
   </div>
@@ -73,6 +74,15 @@
           <option value="32x24" data-i18n-size="sizeL"></option>
         </select>
       </label>
+      <label><span data-i18n="starter"></span>
+        <select id="starter">
+          <option value="p1"></option>
+          <option value="p2"></option>
+          <option value="random" data-i18n="starterRandom"></option>
+        </select>
+      </label>
+      <div class="colors"><span id="colorLabel1"></span><div class="swatches" id="sw1"></div></div>
+      <div class="colors"><span id="colorLabel2"></span><div class="swatches" id="sw2"></div></div>
       <label><span data-i18n="language"></span>
         <select id="lang"></select>
       </label>
@@ -81,6 +91,7 @@
       </label>
     </div>
     <div class="row">
+      <button id="tutorialBtn" class="btn" type="button" data-i18n="tutorial"></button>
       <button id="rulesBtn" class="btn ghost" type="button" data-i18n="rules"></button>
       <button id="endGame" class="btn ghost" type="button" data-i18n="endGame"></button>
       <button id="menuClose" class="btn primary" type="button" data-i18n="done"></button>
@@ -90,7 +101,16 @@
   <dialog id="rules" class="sheet">
     <h2 data-i18n="rulesTitle"></h2>
     <ol id="rulesList"></ol>
-    <div class="row"><button id="rulesClose" class="btn primary" type="button" data-i18n="rulesOk"></button></div>
+    <div class="row">
+      <button id="rulesTutorial" class="btn" type="button" data-i18n="tutorial"></button>
+      <button id="rulesClose" class="btn primary" type="button" data-i18n="rulesOk"></button>
+    </div>
+  </dialog>
+
+  <dialog id="tutDone" class="sheet">
+    <h2 data-i18n="tutDoneTitle"></h2>
+    <p data-i18n="tutDoneText"></p>
+    <div class="row"><button id="tutPlay" class="btn primary" type="button" data-i18n="tutPlay"></button></div>
   </dialog>
 
   <dialog id="over" class="sheet">
